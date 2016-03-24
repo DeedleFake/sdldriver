@@ -4,6 +4,7 @@ import (
 	"errors"
 	"golang.org/x/exp/shiny/screen"
 	"image"
+	"runtime"
 )
 
 // #cgo pkg-config: sdl2
@@ -28,9 +29,12 @@ func (s *screenImpl) NewBuffer(size image.Point) (screen.Buffer, error) {
 		return nil, sdlError(C.GoString(C.SDL_GetError()))
 	}
 
-	return &bufferImpl{
+	b := &bufferImpl{
 		sur: sur,
-	}, nil
+	}
+	runtime.SetFinalizer(b, (*bufferImpl).Release)
+
+	return b, nil
 }
 
 func (s *screenImpl) NewTexture(size image.Point) (screen.Texture, error) {
@@ -49,9 +53,12 @@ func (s *screenImpl) NewTexture(size image.Point) (screen.Texture, error) {
 		return nil, sdlError(C.GoString(C.SDL_GetError()))
 	}
 
-	return &textureImpl{
+	t := &textureImpl{
 		tex: tex,
-	}, nil
+	}
+	runtime.SetFinalizer(t, (*textureImpl).Release)
+
+	return t, nil
 }
 
 func (s *screenImpl) NewWindow(opts *screen.NewWindowOptions) (screen.Window, error) {
@@ -70,8 +77,11 @@ func (s *screenImpl) NewWindow(opts *screen.NewWindowOptions) (screen.Window, er
 
 	s.r = ren
 
-	return &windowImpl{
+	w := &windowImpl{
 		win: win,
 		ren: ren,
-	}, nil
+	}
+	runtime.SetFinalizer(w, (*windowImpl).Release)
+
+	return w, nil
 }
