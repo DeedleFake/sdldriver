@@ -20,6 +20,8 @@ import "C"
 type windowImpl struct {
 	win *C.SDL_Window
 	ren *C.SDL_Renderer
+
+	stage lifecycle.Stage
 }
 
 func (w *windowImpl) Release() {
@@ -42,21 +44,36 @@ func (w *windowImpl) Send(ev interface{}) {
 }
 
 func (w *windowImpl) windowEvent(ev *C.SDL_WindowEvent) interface{} {
-	switch ev.event {
-	case C.SDL_WINDOWEVENT_SHOWN:
-		return lifecycle.Event{
-			From: lifecycle.StageAlive,
-			To:   lifecycle.StageVisible,
-		}
-
-	case C.SDL_WINDOWEVENT_HIDDEN:
-		return lifecycle.Event{
-			From: lifecycle.StageVisible,
-			To:   lifecycle.StageAlive,
-		}
+	r := lifecycle.Event{
+		From: w.stage,
 	}
 
-	return nil
+	switch ev.event {
+	case C.SDL_WINDOWEVENT_SHOWN:
+		r.To = lifecycle.StageVisible
+
+	case C.SDL_WINDOWEVENT_HIDDEN, C.SDL_WINDOWEVENT_MINIMIZED:
+		r.To = lifecycle.StageAlive
+
+	case C.SDL_WINDOWEVENT_EXPOSED:
+		return paint.Event{}
+
+	case C.SDL_WINDOWEVENT_FOCUS_GAINED:
+		r.To = lifecycle.StageFocused
+
+	case C.SDL_WINDOWEVENT_FOCUS_LOST:
+		r.To = lifecycle.StageVisible
+
+	default:
+		return nil
+	}
+
+	if r.From == r.To {
+		return nil
+	}
+
+	w.stage = r.To
+	return r
 }
 
 func (w *windowImpl) keyEvent(ev *C.SDL_KeyboardEvent, dir key.Direction) interface{}
@@ -71,10 +88,12 @@ top:
 	C.SDL_WaitEvent(&ev)
 	switch (*C.SDL_CommonEvent)(unsafe.Pointer(&ev))._type {
 	case C.SDL_QUIT:
-		return lifecycle.Event{
-			From: lifecycle.StageAlive,
+		r := lifecycle.Event{
+			From: w.stage,
 			To:   lifecycle.StageDead,
 		}
+		w.stage = r.To
+		return r
 
 	case C.SDL_WINDOWEVENT:
 		r := w.windowEvent((*C.SDL_WindowEvent)(unsafe.Pointer(&ev)))
