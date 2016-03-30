@@ -86,6 +86,140 @@ func (w *windowImpl) keyEvent(ev *C.SDL_KeyboardEvent, dir key.Direction) interf
 	}
 }
 
+func (w *windowImpl) mouseMotionEvent(ev *C.SDL_MouseMotionEvent) interface{} {
+	return mouse.Event{
+		X: float32(ev.x),
+		Y: float32(ev.y),
+	}
+}
+
+func (w *windowImpl) mouseButtonEvent(ev *C.SDL_MouseButtonEvent, dir mouse.Direction) interface{} {
+	return mouse.Event{
+		X:         float32(ev.x),
+		Y:         float32(ev.y),
+		Button:    mouseButtonMap[ev.button],
+		Direction: dir,
+	}
+}
+
+func (w *windowImpl) mouseWheelEvent(ev *C.SDL_MouseWheelEvent) interface{} {
+	var button mouse.Button
+	switch {
+	case ev.y == 0:
+		return nil
+	case ev.y < 0:
+		button = mouse.ButtonWheelUp
+	case ev.y > 0:
+		button = mouse.ButtonWheelDown
+	}
+
+	return mouse.Event{
+		Button:    button,
+		Direction: mouse.DirPress,
+	}
+}
+
+func (w *windowImpl) NextEvent() interface{} {
+	for {
+		var ev C.SDL_Event
+		C.SDL_WaitEvent(&ev)
+		switch (*C.SDL_CommonEvent)(unsafe.Pointer(&ev))._type {
+		case C.SDL_QUIT:
+			r := lifecycle.Event{
+				From: w.stage,
+				To:   lifecycle.StageDead,
+			}
+			w.stage = r.To
+			return r
+
+		case C.SDL_WINDOWEVENT:
+			r := w.windowEvent((*C.SDL_WindowEvent)(unsafe.Pointer(&ev)))
+			if r == nil {
+				continue
+			}
+			return r
+
+		case C.SDL_KEYUP:
+			return w.keyEvent((*C.SDL_KeyboardEvent)(unsafe.Pointer(&ev)), key.DirRelease)
+		case C.SDL_KEYDOWN:
+			return w.keyEvent((*C.SDL_KeyboardEvent)(unsafe.Pointer(&ev)), key.DirPress)
+
+		case C.SDL_MOUSEMOTION:
+			return w.mouseMotionEvent((*C.SDL_MouseMotionEvent)(unsafe.Pointer(&ev)))
+		case C.SDL_MOUSEBUTTONUP:
+			return w.mouseButtonEvent((*C.SDL_MouseButtonEvent)(unsafe.Pointer(&ev)), mouse.DirRelease)
+		case C.SDL_MOUSEBUTTONDOWN:
+			return w.mouseButtonEvent((*C.SDL_MouseButtonEvent)(unsafe.Pointer(&ev)), mouse.DirPress)
+		case C.SDL_MOUSEWHEEL:
+			r := w.mouseWheelEvent((*C.SDL_MouseWheelEvent)(unsafe.Pointer(&ev)))
+			if r == nil {
+				continue
+			}
+			return r
+		}
+	}
+}
+
+func (w *windowImpl) Upload(dp image.Point, src screen.Buffer, sr image.Rectangle) {
+	C.SDL_BlitSurface(
+		src.(*bufferImpl).sur,
+		toSDLRect(sr),
+		C.SDL_GetWindowSurface(w.win),
+		toSDLRect(image.Rectangle{Min: dp, Max: dp}),
+	)
+}
+
+func (w *windowImpl) Fill(dr image.Rectangle, src color.Color, op draw.Op) {
+	sur := C.SDL_GetWindowSurface(w.win)
+	C.SDL_FillRect(
+		sur,
+		toSDLRect(dr),
+		toSDLColor(sur.format, src, op),
+	)
+}
+
+func (w *windowImpl) Draw(src2dst f64.Aff3, src screen.Texture, sr image.Rectangle, op draw.Op, opts *screen.DrawOptions) {
+	panic("Not implemented.")
+}
+
+func (w *windowImpl) Copy(dp image.Point, src screen.Texture, sr image.Rectangle, op draw.Op, opts *screen.DrawOptions) {
+	C.SDL_RenderCopy(
+		w.ren,
+		src.(*textureImpl).tex,
+		toSDLRect(sr),
+		toSDLRect(image.Rectangle{
+			Min: dp,
+			Max: dp.Add(sr.Size()),
+		}),
+	)
+}
+
+func (w *windowImpl) Scale(dr image.Rectangle, src screen.Texture, sr image.Rectangle, op draw.Op, opts *screen.DrawOptions) {
+	panic("Not implemented.")
+}
+
+func (w *windowImpl) Publish() screen.PublishResult {
+	C.SDL_UpdateWindowSurface(w.win)
+	return screen.PublishResult{}
+}
+
+func modMap(sdl C.Uint16) (mod key.Modifiers) {
+	if sdl&C.KMOD_SHIFT != 0 {
+		mod |= key.ModShift
+	}
+	if sdl&C.KMOD_CTRL != 0 {
+		mod |= key.ModControl
+	}
+	if sdl&C.KMOD_ALT != 0 {
+		mod |= key.ModAlt
+	}
+	if sdl&C.KMOD_GUI != 0 {
+		mod |= key.ModMeta
+	}
+
+	return mod
+}
+
 var (
 	keyMap = map[C.SDL_Keycode]key.Code{
 		C.SDLK_RETURN:    key.CodeReturnEnter,
@@ -204,116 +338,10 @@ var (
 		//C.SDLK_POWER,
 		C.SDLK_KP_EQUALS: key.CodeKeypadEqualSign,
 	}
-)
 
-func modMap(sdl C.Uint16) (mod key.Modifiers) {
-	if sdl&C.KMOD_SHIFT != 0 {
-		mod |= key.ModShift
-	}
-	if sdl&C.KMOD_CTRL != 0 {
-		mod |= key.ModControl
-	}
-	if sdl&C.KMOD_ALT != 0 {
-		mod |= key.ModAlt
-	}
-	if sdl&C.KMOD_GUI != 0 {
-		mod |= key.ModMeta
-	}
-
-	return mod
-}
-
-func (w *windowImpl) mouseMotionEvent(ev *C.SDL_MouseMotionEvent) interface{} {
-	return mouse.Event{
-		X: float32(ev.x),
-		Y: float32(ev.y),
-	}
-}
-
-func (w *windowImpl) mouseButtonEvent(ev *C.SDL_MouseButtonEvent, dir mouse.Direction) interface{} {
-	return mouse.Event{
-		X:         float32(ev.x),
-		Y:         float32(ev.y),
-		Button:    mouseButtonMap[ev.button],
-		Direction: dir,
-	}
-}
-
-var (
 	mouseButtonMap = map[C.Uint8]mouse.Button{
 		C.SDL_BUTTON_LEFT:   mouse.ButtonLeft,
 		C.SDL_BUTTON_MIDDLE: mouse.ButtonMiddle,
 		C.SDL_BUTTON_RIGHT:  mouse.ButtonRight,
 	}
 )
-
-func (w *windowImpl) mouseWheelEvent(ev *C.SDL_MouseWheelEvent) interface{} {
-	var button mouse.Button
-	switch {
-	case ev.y == 0:
-		return nil
-	case ev.y < 0:
-		button = mouse.ButtonWheelUp
-	case ev.y > 0:
-		button = mouse.ButtonWheelDown
-	}
-
-	return mouse.Event{
-		Button:    button,
-		Direction: mouse.DirPress,
-	}
-}
-
-func (w *windowImpl) NextEvent() interface{} {
-top:
-	var ev C.SDL_Event
-	C.SDL_WaitEvent(&ev)
-	switch (*C.SDL_CommonEvent)(unsafe.Pointer(&ev))._type {
-	case C.SDL_QUIT:
-		r := lifecycle.Event{
-			From: w.stage,
-			To:   lifecycle.StageDead,
-		}
-		w.stage = r.To
-		return r
-
-	case C.SDL_WINDOWEVENT:
-		r := w.windowEvent((*C.SDL_WindowEvent)(unsafe.Pointer(&ev)))
-		if r == nil {
-			goto top
-		}
-		return r
-
-	case C.SDL_KEYUP:
-		return w.keyEvent((*C.SDL_KeyboardEvent)(unsafe.Pointer(&ev)), key.DirRelease)
-	case C.SDL_KEYDOWN:
-		return w.keyEvent((*C.SDL_KeyboardEvent)(unsafe.Pointer(&ev)), key.DirPress)
-
-	case C.SDL_MOUSEMOTION:
-		return w.mouseMotionEvent((*C.SDL_MouseMotionEvent)(unsafe.Pointer(&ev)))
-	case C.SDL_MOUSEBUTTONUP:
-		return w.mouseButtonEvent((*C.SDL_MouseButtonEvent)(unsafe.Pointer(&ev)), mouse.DirRelease)
-	case C.SDL_MOUSEBUTTONDOWN:
-		return w.mouseButtonEvent((*C.SDL_MouseButtonEvent)(unsafe.Pointer(&ev)), mouse.DirPress)
-	case C.SDL_MOUSEWHEEL:
-		r := w.mouseWheelEvent((*C.SDL_MouseWheelEvent)(unsafe.Pointer(&ev)))
-		if r == nil {
-			goto top
-		}
-		return r
-	}
-
-	goto top
-}
-
-func (w *windowImpl) Upload(dp image.Point, src screen.Buffer, sr image.Rectangle)
-
-func (w *windowImpl) Fill(dr image.Rectangle, src color.Color, op draw.Op)
-
-func (w *windowImpl) Draw(src2dst f64.Aff3, src screen.Texture, sr image.Rectangle, op draw.Op, opts *screen.DrawOptions)
-
-func (w *windowImpl) Copy(dp image.Point, src screen.Texture, sr image.Rectangle, op draw.Op, opts *screen.DrawOptions)
-
-func (w *windowImpl) Scale(dr image.Rectangle, src screen.Texture, sr image.Rectangle, op draw.Op, opts *screen.DrawOptions)
-
-func (w *windowImpl) Publish() screen.PublishResult
