@@ -77,7 +77,151 @@ func (w *windowImpl) windowEvent(ev *C.SDL_WindowEvent) interface{} {
 	return r
 }
 
-func (w *windowImpl) keyEvent(ev *C.SDL_KeyboardEvent, dir key.Direction) interface{}
+func (w *windowImpl) keyEvent(ev *C.SDL_KeyboardEvent, dir key.Direction) interface{} {
+	return key.Event{
+		Rune:      rune(ev.keysym.sym),
+		Code:      keyMap[ev.keysym.sym],
+		Modifiers: modMap(ev.keysym.mod),
+		Direction: dir,
+	}
+}
+
+var (
+	keyMap = map[C.SDL_Keycode]key.Code{
+		C.SDLK_RETURN:    key.CodeReturnEnter,
+		C.SDLK_ESCAPE:    key.CodeEscape,
+		C.SDLK_BACKSPACE: key.CodeDeleteBackspace,
+		C.SDLK_TAB:       key.CodeTab,
+		C.SDLK_SPACE:     key.CodeSpacebar,
+		//C.SDLK_EXCLAIM,
+		//C.SDLK_QUOTEDBL,
+		//C.SDLK_HASH,
+		//C.SDLK_PERCENT,
+		//C.SDLK_DOLLAR,
+		//C.SDLK_AMPERSAND,
+		C.SDLK_QUOTE: key.CodeApostrophe,
+		//C.SDLK_LEFTPAREN,
+		//C.SDLK_RIGHTPAREN,
+		//C.SDLK_ASTERISK,
+		//C.SDLK_PLUS,
+		C.SDLK_COMMA:  key.CodeComma,
+		C.SDLK_MINUS:  key.CodeHyphenMinus,
+		C.SDLK_PERIOD: key.CodeFullStop,
+		C.SDLK_SLASH:  key.CodeSlash,
+		C.SDLK_0:      key.Code0,
+		C.SDLK_1:      key.Code1,
+		C.SDLK_2:      key.Code2,
+		C.SDLK_3:      key.Code3,
+		C.SDLK_4:      key.Code4,
+		C.SDLK_5:      key.Code5,
+		C.SDLK_6:      key.Code6,
+		C.SDLK_7:      key.Code7,
+		C.SDLK_8:      key.Code8,
+		C.SDLK_9:      key.Code9,
+		//C.SDLK_COLON,
+		C.SDLK_SEMICOLON: key.CodeSemicolon,
+		//C.SDLK_LESS,
+		C.SDLK_EQUALS: key.CodeEqualSign,
+		//C.SDLK_GREATER,
+		//C.SDLK_QUESTION,
+		//C.SDLK_AT,
+		C.SDLK_LEFTBRACKET:  key.CodeLeftSquareBracket,
+		C.SDLK_BACKSLASH:    key.CodeBackslash,
+		C.SDLK_RIGHTBRACKET: key.CodeRightSquareBracket,
+		//C.SDLK_CARET,
+		//C.SDLK_UNDERSCORE,
+		C.SDLK_BACKQUOTE: key.CodeGraveAccent,
+		C.SDLK_a:         key.CodeA,
+		C.SDLK_b:         key.CodeB,
+		C.SDLK_c:         key.CodeC,
+		C.SDLK_d:         key.CodeD,
+		C.SDLK_e:         key.CodeE,
+		C.SDLK_f:         key.CodeF,
+		C.SDLK_g:         key.CodeG,
+		C.SDLK_h:         key.CodeH,
+		C.SDLK_i:         key.CodeI,
+		C.SDLK_j:         key.CodeJ,
+		C.SDLK_k:         key.CodeK,
+		C.SDLK_l:         key.CodeL,
+		C.SDLK_m:         key.CodeM,
+		C.SDLK_n:         key.CodeN,
+		C.SDLK_o:         key.CodeO,
+		C.SDLK_p:         key.CodeP,
+		C.SDLK_q:         key.CodeQ,
+		C.SDLK_r:         key.CodeR,
+		C.SDLK_s:         key.CodeS,
+		C.SDLK_t:         key.CodeT,
+		C.SDLK_u:         key.CodeU,
+		C.SDLK_v:         key.CodeV,
+		C.SDLK_w:         key.CodeW,
+		C.SDLK_x:         key.CodeX,
+		C.SDLK_y:         key.CodeY,
+		C.SDLK_z:         key.CodeZ,
+		C.SDLK_CAPSLOCK:  key.CodeCapsLock,
+		C.SDLK_F1:        key.CodeF1,
+		C.SDLK_F2:        key.CodeF2,
+		C.SDLK_F3:        key.CodeF3,
+		C.SDLK_F4:        key.CodeF4,
+		C.SDLK_F5:        key.CodeF5,
+		C.SDLK_F6:        key.CodeF6,
+		C.SDLK_F7:        key.CodeF7,
+		C.SDLK_F8:        key.CodeF8,
+		C.SDLK_F9:        key.CodeF9,
+		C.SDLK_F10:       key.CodeF10,
+		C.SDLK_F11:       key.CodeF11,
+		C.SDLK_F12:       key.CodeF12,
+		//C.SDLK_PRINTSCREEN,
+		//C.SDLK_SCROLLLOCK,
+		C.SDLK_PAUSE:        key.CodePause,
+		C.SDLK_INSERT:       key.CodeInsert,
+		C.SDLK_HOME:         key.CodeHome,
+		C.SDLK_PAGEUP:       key.CodePageUp,
+		C.SDLK_DELETE:       key.CodeDeleteForward,
+		C.SDLK_END:          key.CodeEnd,
+		C.SDLK_PAGEDOWN:     key.CodePageDown,
+		C.SDLK_RIGHT:        key.CodeRightArrow,
+		C.SDLK_LEFT:         key.CodeLeftArrow,
+		C.SDLK_DOWN:         key.CodeDownArrow,
+		C.SDLK_UP:           key.CodeUpArrow,
+		C.SDLK_NUMLOCKCLEAR: key.CodeKeypadNumLock,
+		C.SDLK_KP_DIVIDE:    key.CodeKeypadSlash,
+		C.SDLK_KP_MULTIPLY:  key.CodeKeypadAsterisk,
+		C.SDLK_KP_MINUS:     key.CodeKeypadHyphenMinus,
+		C.SDLK_KP_PLUS:      key.CodeKeypadPlusSign,
+		C.SDLK_KP_ENTER:     key.CodeKeypadEnter,
+		C.SDLK_KP_1:         key.CodeKeypad1,
+		C.SDLK_KP_2:         key.CodeKeypad2,
+		C.SDLK_KP_3:         key.CodeKeypad3,
+		C.SDLK_KP_4:         key.CodeKeypad4,
+		C.SDLK_KP_5:         key.CodeKeypad5,
+		C.SDLK_KP_6:         key.CodeKeypad6,
+		C.SDLK_KP_7:         key.CodeKeypad7,
+		C.SDLK_KP_8:         key.CodeKeypad8,
+		C.SDLK_KP_9:         key.CodeKeypad9,
+		C.SDLK_KP_0:         key.CodeKeypad0,
+		C.SDLK_KP_PERIOD:    key.CodeFullStop,
+		//C.SDLK_APPLICATION,
+		//C.SDLK_POWER,
+		C.SDLK_KP_EQUALS: key.CodeKeypadEqualSign,
+	}
+)
+
+func modMap(sdl C.Uint16) (mod key.Modifiers) {
+	if sdl&C.KMOD_SHIFT != 0 {
+		mod |= key.ModShift
+	}
+	if sdl&C.KMOD_CTRL != 0 {
+		mod |= key.ModControl
+	}
+	if sdl&C.KMOD_ALT != 0 {
+		mod |= key.ModAlt
+	}
+	if sdl&C.KMOD_GUI != 0 {
+		mod |= key.ModMeta
+	}
+
+	return mod
+}
 
 func (w *windowImpl) mouseMotionEvent(ev *C.SDL_MouseMotionEvent) interface{}
 
