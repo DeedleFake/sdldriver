@@ -223,9 +223,46 @@ func modMap(sdl C.Uint16) (mod key.Modifiers) {
 	return mod
 }
 
-func (w *windowImpl) mouseMotionEvent(ev *C.SDL_MouseMotionEvent) interface{}
+func (w *windowImpl) mouseMotionEvent(ev *C.SDL_MouseMotionEvent) interface{} {
+	return mouse.Event{
+		X: float32(ev.x),
+		Y: float32(ev.y),
+	}
+}
 
-func (w *windowImpl) mouseButtonEvent(ev *C.SDL_MouseButtonEvent, dir mouse.Direction) interface{}
+func (w *windowImpl) mouseButtonEvent(ev *C.SDL_MouseButtonEvent, dir mouse.Direction) interface{} {
+	return mouse.Event{
+		X:         float32(ev.x),
+		Y:         float32(ev.y),
+		Button:    mouseButtonMap[ev.button],
+		Direction: dir,
+	}
+}
+
+var (
+	mouseButtonMap = map[C.Uint8]mouse.Button{
+		C.SDL_BUTTON_LEFT:   mouse.ButtonLeft,
+		C.SDL_BUTTON_MIDDLE: mouse.ButtonMiddle,
+		C.SDL_BUTTON_RIGHT:  mouse.ButtonRight,
+	}
+)
+
+func (w *windowImpl) mouseWheelEvent(ev *C.SDL_MouseWheelEvent) interface{} {
+	var button mouse.Button
+	switch {
+	case ev.y == 0:
+		return nil
+	case ev.y < 0:
+		button = mouse.ButtonWheelUp
+	case ev.y > 0:
+		button = mouse.ButtonWheelDown
+	}
+
+	return mouse.Event{
+		Button:    button,
+		Direction: mouse.DirPress,
+	}
+}
 
 func (w *windowImpl) NextEvent() interface{} {
 top:
@@ -258,6 +295,12 @@ top:
 		return w.mouseButtonEvent((*C.SDL_MouseButtonEvent)(unsafe.Pointer(&ev)), mouse.DirRelease)
 	case C.SDL_MOUSEBUTTONDOWN:
 		return w.mouseButtonEvent((*C.SDL_MouseButtonEvent)(unsafe.Pointer(&ev)), mouse.DirPress)
+	case C.SDL_MOUSEWHEEL:
+		r := w.mouseWheelEvent((*C.SDL_MouseWheelEvent)(unsafe.Pointer(&ev)))
+		if r == nil {
+			goto top
+		}
+		return r
 	}
 
 	goto top
