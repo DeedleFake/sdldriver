@@ -6,6 +6,7 @@ import (
 	"golang.org/x/mobile/event/key"
 	"golang.org/x/mobile/event/lifecycle"
 	"golang.org/x/mobile/event/mouse"
+	"golang.org/x/mobile/event/paint"
 	"image"
 	"image/color"
 	"image/draw"
